@@ -18,7 +18,6 @@ import (
 	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
-
 	"github.com/sirupsen/logrus"
 )
 
