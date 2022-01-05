@@ -54,6 +54,7 @@ func main() {
 
 	r.Use(ginrus.Ginrus(logrus.StandardLogger(), time.RFC3339, true), gin.Recovery())
 
+	initMetrics(producer)
 	r.GET("/metrics", gin.WrapH(prometheus.UninstrumentedHandler()))
 
 	if basicauth {

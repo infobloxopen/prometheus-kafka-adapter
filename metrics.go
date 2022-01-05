@@ -14,22 +14,44 @@
 
 package main
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+)
 
 var (
-	queueSize = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kafka_queue_size",
-			Help: "Queue size for metrics sent to Kafka",
-		})
 	httpRequestsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Count of all http requests",
 		})
+	queueSizeDesc = prometheus.NewDesc(
+		"kafka_queue_size",
+		"Queue size for metrics sent to Kafka",
+		[]string{},
+		prometheus.Labels{},
+	)
 )
 
-func init() {
-	prometheus.MustRegister(queueSize)
+type queueLenCollector struct {
+	producer *kafka.Producer
+}
+
+func (queueLenCollector) Describe(descChan chan<- *prometheus.Desc) {
+	descChan <- queueSizeDesc
+}
+
+func (qlc queueLenCollector) Collect(metricChan chan<- prometheus.Metric) {
+	qLen := float64(qlc.producer.Len())
+	met, err := prometheus.NewConstMetric(queueSizeDesc, prometheus.GaugeValue, qLen)
+	if err != nil {
+		logrus.WithError(err).Error("Error collecting kafka_queue_size metric")
+	}
+	metricChan <- met
+}
+
+func initMetrics(producer *kafka.Producer) {
 	prometheus.MustRegister(httpRequestsTotal)
+	prometheus.MustRegister(&queueLenCollector{producer: producer})
 }
