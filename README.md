@@ -45,6 +45,7 @@ Prometheus-kafka-adapter listens for metrics coming from Prometheus and sends th
 - `KAFKA_BROKER_LIST`: defines kafka endpoint and port, defaults to `kafka:9092`.
 - `KAFKA_TOPIC`: defines kafka topic to be used, defaults to `metrics`.
 - `KAFKA_COMPRESSION`: defines the compression type to be used, defaults to `none`.
+- `KAFKA_QUEUE_BUFFERING_MAX_MESSAGES`: defines the maximum number of messages allowed on the producer queue, defaults to `100000`.
 - `KAFKA_BATCH_NUM_MESSAGES`: defines the number of messages to batch write, defaults to `10000`.
 - `SERIALIZATION_FORMAT`: defines the serialization format, can be `json`, `avro-json`, defaults to `json`.
 - `PORT`: defines http port to listen, defaults to `8080`, used directly by [gin](https://github.com/gin-gonic/gin).
@@ -53,7 +54,7 @@ Prometheus-kafka-adapter listens for metrics coming from Prometheus and sends th
 - `LOG_LEVEL`: defines log level for [`logrus`](https://github.com/sirupsen/logrus), can be `debug`, `info`, `warn`, `error`, `fatal` or `panic`, defaults to `info`.
 - `GIN_MODE`: manage [gin](https://github.com/gin-gonic/gin) debug logging, can be `debug` or `release`.
 
-To connect to Kafka over SSL define the following additonal environment variables:
+To connect to Kafka over SSL define the following additional environment variables:
 
 - `KAFKA_SSL_CLIENT_CERT_FILE`: Kafka SSL client certificate file, defaults to `""`
 - `KAFKA_SSL_CLIENT_KEY_FILE`: Kafka SSL client certificate key file, defaults to `""`

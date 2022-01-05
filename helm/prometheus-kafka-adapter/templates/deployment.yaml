@@ -41,6 +41,8 @@ spec:
             value: {{ tpl .Values.environment.KAFKA_TOPIC . }}
           - name: KAFKA_COMPRESSION
             value: {{ .Values.environment.KAFKA_COMPRESSION | quote }}
+          - name: KAFKA_QUEUE_BUFFERING_MAX_MESSAGES
+            value: {{ .Values.environment.KAFKA_QUEUE_BUFFERING_MAX_MESSAGES | quote }}
           - name: KAFKA_BATCH_NUM_MESSAGES
             value: {{ .Values.environment.KAFKA_BATCH_NUM_MESSAGES | quote }}
           - name: SERIALIZATION_FORMAT

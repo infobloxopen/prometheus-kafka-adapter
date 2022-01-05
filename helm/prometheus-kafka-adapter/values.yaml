@@ -32,6 +32,8 @@ environment:
   KAFKA_TOPIC: ""
   # defines the compression type to be used, defaults to none.
   KAFKA_COMPRESSION:
+  # sets the maximum number of messages allowed on the producer queue, defaults to 100000
+  KAFKA_QUEUE_BUFFERING_MAX_MESSAGES:
   # defines the number of messages to batch write, defaults to 10000.
   KAFKA_BATCH_NUM_MESSAGES:
   # defines the serialization format, can be json, avro-json, defaults to json.
