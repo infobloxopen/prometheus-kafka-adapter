@@ -73,10 +73,8 @@ func main() {
 		logrus.WithError(err).Fatal("couldn't create kafka producer")
 	}
 
-	if kafkaPartitionLabels != nil {
-		if err := syncTopicMetadata(ctx, producer); err != nil {
-			logrus.WithError(err).Fatal("couldn't fetch topic metadata")
-		}
+	if err := syncTopicMetadata(ctx, producer); err != nil {
+		logrus.WithError(err).Fatal("couldn't fetch topic metadata")
 	}
 
 	r := gin.New()
