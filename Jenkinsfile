@@ -13,7 +13,7 @@ pipeline {
  stages {
    stage("Build Image") {
      steps {
-       sh 'docker build . -t prometheus-kafka-adapter:$TAG'
+       sh 'docker build . -t prometheus.kafka.adapter:$TAG'
      }
    }
    stage("Push Image") {
@@ -25,7 +25,7 @@ pipeline {
      }
      steps {
        script {
-         signDockerImage('prometheus-kafka-adapter', env.TAG, 'infoblox')
+         signDockerImage('prometheus.kafka.adapter', env.TAG, 'infoblox')
        }
      }
    }
@@ -33,7 +33,7 @@ pipeline {
      steps {
        dir("helm") {
          sh '''
-           sed -i "s!repository: .*!repository: $REGISTRY/infoblox/prometheus-kafka-adapter!g" prometheus-kafka-adapter/values.yaml
+           sed -i "s!repository: .*!repository: $REGISTRY/infoblox/prometheus.kafka.adapter!g" prometheus-kafka-adapter/values.yaml
          '''
          withAWS(credentials: "CICD_HELM", region: "us-east-1") {
            sh '''
@@ -72,7 +72,7 @@ pipeline {
  }
  post {
    success {
-     finalizeBuild('', getFileList("*.properties"))
+     finalizeBuild()
    }
  }
 }
