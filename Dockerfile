@@ -1,16 +1,41 @@
-FROM golang:1.19.1-alpine as build
+# Build stage
+FROM --platform=linux/amd64 golang:1.25-alpine3.21 AS builder
+LABEL stage=builder-intermediate
 WORKDIR /src/prometheus-kafka-adapter
 
-COPY go.mod go.sum vendor *.go ./
+# Install build dependencies for confluent-kafka-go (requires librdkafka)
+RUN apk add --no-cache gcc musl-dev pkgconfig bash
 
-ADD . /src/prometheus-kafka-adapter
+# Install librdkafka for confluent-kafka-go
+RUN apk add --no-cache librdkafka-dev
 
-RUN apk add --no-cache gcc musl-dev
-RUN go build -ldflags='-w -s -extldflags "-static"' -tags musl,static,netgo -mod=vendor -o /prometheus-kafka-adapter
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+COPY vendor ./vendor
 
-FROM alpine:3.16
+# Copy source code
+COPY *.go ./
+COPY schemas ./schemas
 
-COPY schemas/metric.avsc /schemas/metric.avsc
-COPY --from=build /prometheus-kafka-adapter /
+# Build the binary with optimizations for distroless
+# CGO is enabled because confluent-kafka-go requires it
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-s -w" \
+    -tags musl,static_all \
+    -mod=vendor \
+    -o /bin/prometheus-kafka-adapter
 
-CMD /prometheus-kafka-adapter
+# Final runtime stage using distroless base (not static, as we need libc)
+FROM gcr.io/distroless/base-debian12:nonroot-amd64 AS runner
+WORKDIR /
+
+# Copy the binary from builder
+COPY --from=builder /bin/prometheus-kafka-adapter /prometheus-kafka-adapter
+
+# Copy schema file
+COPY --from=builder /src/prometheus-kafka-adapter/schemas/metric.avsc /schemas/metric.avsc
+
+# Use nonroot user for security
+USER nonroot
+
+ENTRYPOINT ["/prometheus-kafka-adapter"]

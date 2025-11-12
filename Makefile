@@ -22,7 +22,7 @@ build-musl:
 	docker run --rm -v $(CURDIR):/app:z -w /app golang:$(MUSL_GO_VER) sh tools/buildscript.sh $(NAME)
 
 build-docker-image:
-	docker buildx build -t telefonica/prometheus-kafka-adapter:latest .
+	docker buildx build --platform linux/amd64 -t telefonica/prometheus-kafka-adapter:latest .
 
 vendor-update:
 	docker run --rm -e PACKAGE_NAME=$(PACKAGE_NAME) -v $(CURDIR):/app:z -w /app golang:$(MUSL_GO_VER) sh tools/vendorscript.sh
