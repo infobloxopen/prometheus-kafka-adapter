@@ -26,7 +26,7 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
     -o /bin/prometheus-kafka-adapter
 
 # Final runtime stage using distroless base (not static, as we need libc)
-FROM gcr.io/distroless/base-debian12:nonroot-amd64 AS runner
+FROM gcr.io/distroless/base-debian13:nonroot-amd64 AS runner
 WORKDIR /
 
 # Copy the binary from builder
