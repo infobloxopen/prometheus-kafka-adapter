@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine3.21 AS builder
+FROM golang:1.22.3-alpine AS builder
 LABEL stage=builder-intermediate
 WORKDIR /src/prometheus-kafka-adapter
 
