@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - master
-      - distroless
+      - 'release-*'
 jobs:
   vulnerability-scan:
     name: Grype Vulnerability Scan
