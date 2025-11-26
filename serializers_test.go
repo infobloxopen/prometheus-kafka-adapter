@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/stretchr/testify/assert"
 )
@@ -38,6 +39,20 @@ func TestSerializeEmptyTimeseriesToJSON(t *testing.T) {
 }
 
 func TestSerializeToJSON(t *testing.T) {
+	// Ensure clean state for global variables
+	originalTopicTemplate := topicTemplate
+	originalMatch := match
+	defer func() {
+		topicTemplate = originalTopicTemplate
+		match = originalMatch
+	}()
+
+	// Reset to default state
+	var err error
+	topicTemplate, err = parseTopicTemplate("metrics")
+	assert.Nil(t, err)
+	match = make(map[string]*dto.MetricFamily, 0)
+
 	serializer, err := NewJSONSerializer()
 	assert.Nil(t, err)
 
@@ -68,13 +83,29 @@ func TestSerializeEmptyTimeseriesToAvroJSON(t *testing.T) {
 }
 
 func TestSerializeToAvro(t *testing.T) {
+	// Ensure clean state for global variables
+	originalTopicTemplate := topicTemplate
+	originalMatch := match
+	defer func() {
+		topicTemplate = originalTopicTemplate
+		match = originalMatch
+	}()
+
+	// Reset to default state
+	var err error
+	topicTemplate, err = parseTopicTemplate("metrics")
+	assert.Nil(t, err)
+	match = make(map[string]*dto.MetricFamily, 0)
+
 	serializer, err := NewAvroJSONSerializer("schemas/metric.avsc")
 	assert.Nil(t, err)
 
 	writeRequest := NewWriteRequest()
 	output, err := Serialize(serializer, writeRequest)
-	assert.Len(t, output["metrics|__name__foolabelfoolabel-bar"], 2)
 	assert.Nil(t, err)
+	metrics, ok := output["metrics|__name__foolabelfoolabel-bar"]
+	assert.True(t, ok, "output map does not contain expected key")
+	assert.Len(t, metrics, 2, "metrics should have 2 items, got %d: %+v", len(metrics), metrics)
 
 	expectedSamples := []string{
 		"{\"value\":\"456\",\"timestamp\":\"1970-01-01T00:00:00Z\",\"name\":\"foo\",\"labels\":{\"__name__\":\"foo\",\"labelfoo\":\"label-bar\"}}",
