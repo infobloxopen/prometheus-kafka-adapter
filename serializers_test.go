@@ -87,6 +87,10 @@ func TestSerializeToAvro(t *testing.T) {
 }
 
 func TestTemplatedTopic(t *testing.T) {
+	// Save and restore the global topicTemplate variable to avoid test pollution
+	originalTopicTemplate := topicTemplate
+	defer func() { topicTemplate = originalTopicTemplate }()
+
 	var err error
 	topicTemplate, err = parseTopicTemplate("{{ index . \"labelfoo\" | replace \"bar\" \"foo\" | substring 6 -1 }}")
 	assert.Nil(t, err)
@@ -104,6 +108,10 @@ func TestTemplatedTopic(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
+	// Save and restore the global match variable to avoid test pollution
+	originalMatch := match
+	defer func() { match = originalMatch }()
+
 	rulesText := `['foo{y="2"}','foo', 'bar{x="1"}',
 'up{x="1",y="2"}', 'baz{key="valu
 e1;value2"}','bar{y="2"}']`
