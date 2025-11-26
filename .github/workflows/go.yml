@@ -5,10 +5,12 @@ on:
     branches:
     - infoblox
     - master
+    - distroless
   pull_request:
     branches:
     - infoblox
     - master
+    - distroless
 
 jobs:
 
