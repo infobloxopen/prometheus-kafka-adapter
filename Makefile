@@ -1,6 +1,6 @@
 NAME := prometheus-kafka-adapter
 PACKAGE_NAME := github.com/Telefonica/prometheus-kafka-adapter
-GO_VER := 1.19.1
+GO_VER := 1.22.3
 LIBC_GO_VER := $(GO_VER)-buster
 MUSL_GO_VER := $(GO_VER)-alpine
 

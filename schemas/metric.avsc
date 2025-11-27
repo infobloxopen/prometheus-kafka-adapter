@@ -2,7 +2,7 @@
     "namespace": "io.prometheus",
     "type": "record",
     "name": "Metric",
-    "doc:" : "A basic schema for representing Prometheus metrics",
+    "doc" : "A basic schema for representing Prometheus metrics",
     "fields": [
         {"name": "timestamp", "type": "string"},
         {"name": "value", "type": "string"},
