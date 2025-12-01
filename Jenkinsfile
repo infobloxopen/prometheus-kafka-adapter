@@ -21,6 +21,7 @@ pipeline {
        anyOf {
          branch 'master'
          branch 'jenkinsfile'
+         branch 'infoblox'
        }
      }
      steps {
