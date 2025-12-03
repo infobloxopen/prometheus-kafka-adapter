@@ -16,20 +16,6 @@ pipeline {
        sh 'docker build . -t prometheus.kafka.adapter:$TAG'
      }
    }
-   stage("Push Image") {
-     when {
-       anyOf {
-         branch 'master'
-         branch 'jenkinsfile'
-         branch 'infoblox'
-       }
-     }
-     steps {
-       script {
-         signDockerImage('prometheus.kafka.adapter', env.TAG, 'infoblox')
-       }
-     }
-   }
    stage("Package Chart") {
      steps {
        dir("helm") {
@@ -75,7 +61,7 @@ pipeline {
     success {
         finalizeBuild(
             sh(
-                script: 'make list-of-images',
+                script: "ehco prometheus.kafka.adapter:$TAG',
                 returnStdout: true
             )
         )
