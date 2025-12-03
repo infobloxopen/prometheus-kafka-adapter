@@ -72,8 +72,13 @@ pipeline {
    }
  }
  post {
-   success {
-     finalizeBuild()
-   }
+    success {
+        finalizeBuild(
+            sh(
+                script: 'make list-of-images',
+                returnStdout: true
+            )
+        )
+    }
  }
 }
