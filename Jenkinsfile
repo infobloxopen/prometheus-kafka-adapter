@@ -6,7 +6,7 @@ pipeline {
  }
  environment {
    HELM_IMAGE = "infoblox/helm:3"
-   REGISTRY = "core-harbor-prod.sdp.infoblox.com"
+   REGISTRY = "harbor.services.sdp.infoblox.com"
    VERSION = sh(script: "git describe --always --long --tags | sed s/^prometheus-kafka-adapter-//", returnStdout: true).trim()
    TAG = "${env.VERSION}-j${env.BUILD_NUMBER}"
  }
