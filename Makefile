@@ -26,5 +26,9 @@ build-docker-image:
 
 vendor-update:
 	docker run --rm -e PACKAGE_NAME=$(PACKAGE_NAME) -v $(CURDIR):/app:z -w /app golang:$(MUSL_GO_VER) sh tools/vendorscript.sh
+
+list-of-images:
+	@echo "core-harbor-prod.sdp.infoblox.com/infoblox/prometheus.kafka.adapter:$(TAG)"
+
 clean:
 	rm -f $(NAME)-libc $(NAME)-musl
