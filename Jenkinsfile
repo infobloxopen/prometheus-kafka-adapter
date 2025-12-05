@@ -61,7 +61,7 @@ pipeline {
     success {
         finalizeBuild(
             sh(
-                script: "ehco prometheus.kafka.adapter:$TAG',
+                script: "echo prometheus.kafka.adapter:$TAG",
                 returnStdout: true
             )
         )
