@@ -1,5 +1,5 @@
 # Build stage - use Debian-based Go image to match distroless base
-FROM golang:1.22.3-bookworm AS builder
+FROM golang:1.24.11-bookworm AS builder
 LABEL stage=builder-intermediate
 WORKDIR /src/prometheus-kafka-adapter
 
