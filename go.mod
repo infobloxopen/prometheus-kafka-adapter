@@ -1,6 +1,6 @@
 module github.com/Telefonica/prometheus-kafka-adapter
 
-go 1.24.11
+go 1.25.5
 
 require (
 	github.com/confluentinc/confluent-kafka-go v1.9.2
