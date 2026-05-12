@@ -1,0 +1,28 @@
+{{- if .Values.smokeTests.enabled }}
+# State ConfigMap for HelmRelease version tracking.
+# The CronJob compares the current HR chart version against this stored value.
+# On first deploy, CronJob detects "initial" != current version and triggers tests.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pka-smoke-test-state
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    app.kubernetes.io/component: state
+data:
+  last-chart-version: "initial"
+---
+# Results store — holds compact version result JSON blobs (one key per version).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pka-k6-results
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    app.kubernetes.io/component: results
+{{- end }}

@@ -1,0 +1,154 @@
+{{- if .Values.smokeTests.enabled }}
+# CronJob that polls the HelmRelease for chart version changes.
+# When a new version is detected, it creates a K6 runner Job from the
+# job-template ConfigMap to execute smoke tests.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pka-hr-watcher
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    app.kubernetes.io/component: hr-watcher
+spec:
+  schedule: {{ .Values.smokeTests.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: k6-smoke-tests
+            app.kubernetes.io/part-of: prometheus-kafka-adapter
+            app.kubernetes.io/component: hr-watcher
+        spec:
+          serviceAccountName: pka-k6-smoke-test-sa
+          restartPolicy: Never
+          containers:
+            - name: watcher
+              image: {{ .Values.smokeTests.kubectlImage }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+
+                  SERVICE_NAME="pka"
+                  HR_NAME={{ .Values.smokeTests.helmRelease.name | quote }}
+                  HR_NAMESPACE={{ .Values.smokeTests.helmRelease.namespace | quote }}
+                  STATE_CM="pka-smoke-test-state"
+                  JOB_NAMESPACE={{ .Release.Namespace | quote }}
+
+                  echo "=== Prometheus-Kafka-Adapter HelmRelease Watcher ==="
+                  echo "Checking ${HR_NAMESPACE}/${HR_NAME}..."
+
+                  # Get current chart version from HelmRelease spec
+                  CURRENT_VERSION=$(kubectl get hr "${HR_NAME}" -n "${HR_NAMESPACE}" \
+                    -o jsonpath='{.spec.chart.spec.version}' 2>/dev/null)
+
+                  if [ -z "${CURRENT_VERSION}" ]; then
+                    echo "ERROR: Could not read HelmRelease chart version"
+                    exit 1
+                  fi
+                  echo "Current chart version: ${CURRENT_VERSION}"
+
+                  # Check deployment status
+                  DEPLOY_STATUS=$(kubectl get hr "${HR_NAME}" -n "${HR_NAMESPACE}" \
+                    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+
+                  if [ "${DEPLOY_STATUS}" != "True" ]; then
+                    echo "HelmRelease is not Ready (status=${DEPLOY_STATUS}). Skipping."
+                    exit 0
+                  fi
+
+                  # Read last known version from state ConfigMap
+                  LAST_VERSION=$(kubectl get configmap "${STATE_CM}" -n "${JOB_NAMESPACE}" \
+                    -o jsonpath='{.data.last-chart-version}' 2>/dev/null || echo "")
+
+                  if [ -z "${LAST_VERSION}" ]; then
+                    echo "ERROR: State ConfigMap ${STATE_CM} not found. Ensure smoke-tests-state.yaml is deployed."
+                    exit 1
+                  fi
+
+                  echo "Last known version: ${LAST_VERSION}"
+
+                  # Compare versions — exit early if unchanged
+                  if [ "${CURRENT_VERSION}" = "${LAST_VERSION}" ]; then
+                    echo "Version unchanged. No action needed."
+                    exit 0
+                  fi
+
+                  echo ""
+                  echo "*** VERSION CHANGE DETECTED ***"
+                  echo "  ${LAST_VERSION} -> ${CURRENT_VERSION}"
+                  echo ""
+
+                  # ─── Validate the specific deployment rollout ───
+                  TARGET_NS={{ .Values.smokeTests.serviceNamespace | quote }}
+                  DEPLOY_NAME={{ .Values.smokeTests.deploymentName | quote }}
+                  MAX_WAIT=300
+
+                  echo "=== Validating deployment/${DEPLOY_NAME} in '${TARGET_NS}' ==="
+
+                  echo "Waiting for deployment/${DEPLOY_NAME} rollout..."
+                  if ! kubectl rollout status deployment/"${DEPLOY_NAME}" -n "${TARGET_NS}" \
+                    --timeout="${MAX_WAIT}s" 2>/dev/null; then
+                    echo "ERROR: Deployment ${DEPLOY_NAME} rollout not complete after ${MAX_WAIT}s. Skipping smoke tests."
+                    exit 0
+                  fi
+                  echo "  ✓ deployment/${DEPLOY_NAME} rollout complete"
+
+                  # Summary
+                  echo ""
+                  echo "=== ${DEPLOY_NAME} pod status ==="
+                  kubectl get pods -n "${TARGET_NS}" -l app.kubernetes.io/name=${DEPLOY_NAME} \
+                    -o custom-columns='NAME:.metadata.name,STATUS:.status.phase,READY:.status.conditions[?(@.type=="Ready")].status' \
+                    --no-headers 2>/dev/null || \
+                  kubectl get pods -n "${TARGET_NS}" -l app=${DEPLOY_NAME} \
+                    -o custom-columns='NAME:.metadata.name,STATUS:.status.phase,READY:.status.conditions[?(@.type=="Ready")].status' \
+                    --no-headers 2>/dev/null
+                  echo ""
+
+                  # Update state BEFORE triggering test (prevent re-trigger on failure)
+                  kubectl patch configmap "${STATE_CM}" -n "${JOB_NAMESPACE}" \
+                    --type merge -p "{\"data\":{\"last-chart-version\":\"${CURRENT_VERSION}\"}}"
+                  echo "State updated to ${CURRENT_VERSION}"
+
+                  # Wait for any running K6 Job to finish before starting a new one
+                  ACTIVE_PODS=$(kubectl get job pka-k6-smoke-test -n "${JOB_NAMESPACE}" \
+                    -o jsonpath='{.status.active}' 2>/dev/null || echo "0")
+
+                  if [ "${ACTIVE_PODS}" != "" ] && [ "${ACTIVE_PODS}" != "0" ]; then
+                    echo "K6 Job is still running (${ACTIVE_PODS} active pod(s)). Waiting for completion..."
+                    kubectl wait --for=condition=complete job/pka-k6-smoke-test \
+                      -n "${JOB_NAMESPACE}" --timeout=600s 2>/dev/null || {
+                      echo "WARNING: Timed out waiting for running K6 Job. Proceeding with cleanup."
+                    }
+                    echo "Previous K6 Job finished."
+                  fi
+
+                  # Delete previous K6 Job if it exists (Jobs are immutable)
+                  kubectl delete job pka-k6-smoke-test -n "${JOB_NAMESPACE}" \
+                    --ignore-not-found=true 2>/dev/null
+                  echo "Cleaned up previous Job (if any)"
+
+                  # Create new K6 runner Job from the Job template ConfigMap
+                  echo "Creating K6 smoke test Job..."
+                  kubectl get configmap "${SERVICE_NAME}-k6-job-template" -n "${JOB_NAMESPACE}" \
+                    -o jsonpath='{.data.k6-runner-job\.yaml}' \
+                    | kubectl apply -f -
+
+                  echo "K6 smoke test Job created for version ${CURRENT_VERSION}"
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "32Mi"
+                limits:
+                  cpu: "100m"
+                  memory: "64Mi"
+{{- end }}

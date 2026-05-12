@@ -1,0 +1,113 @@
+{{- if .Values.smokeTests.enabled }}
+# RBAC for K6 smoke test automation.
+# ServiceAccount for CronJob watcher and K6 runner Job.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pka-k6-smoke-test-sa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    app.kubernetes.io/component: automation
+---
+# ClusterRole: read-only access to HelmReleases across namespaces (needed for vela-system).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pka-k6-smoke-test-hr-reader
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+rules:
+  - apiGroups: ["helm.toolkit.fluxcd.io"]
+    resources: ["helmreleases"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pka-k6-smoke-test-hr-reader-binding
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pka-k6-smoke-test-hr-reader
+subjects:
+  - kind: ServiceAccount
+    name: pka-k6-smoke-test-sa
+    namespace: {{ .Release.Namespace }}
+---
+# Namespaced Role: manage Jobs, ConfigMaps in the release namespace only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pka-k6-smoke-test-role
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+rules:
+  # Read/write ConfigMaps (state tracking + job template)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  # Create/delete Jobs (watcher creates K6 runner Jobs)
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pka-k6-smoke-test-binding
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pka-k6-smoke-test-role
+subjects:
+  - kind: ServiceAccount
+    name: pka-k6-smoke-test-sa
+    namespace: {{ .Release.Namespace }}
+---
+# Role in the SERVICE namespace: read-only access to deployments/pods for rollout validation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pka-k6-smoke-test-pod-reader
+  namespace: {{ .Values.smokeTests.serviceNamespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pka-k6-smoke-test-pod-reader-binding
+  namespace: {{ .Values.smokeTests.serviceNamespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: pka-k6-smoke-test-pod-reader
+subjects:
+  - kind: ServiceAccount
+    name: pka-k6-smoke-test-sa
+    namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,422 @@
+{
+  "service_summary": {
+    "name": "prometheus-kafka-adapter",
+    "description": "A data pipeline adapter that receives Prometheus metrics via the remote_write protocol, serializes them into JSON or Avro-JSON format, and produces them to configurable Kafka topics.",
+    "technology_stack": {
+      "language": "Go",
+      "framework": "Gin (HTTP)",
+      "messaging": "Confluent Kafka Go client",
+      "serialization_formats": ["json", "avro-json"]
+    },
+    "default_port": 8080,
+    "core_behavior": "Write-only adapter. No CRUD resources. Receives snappy-compressed protobuf (Prometheus prompb.WriteRequest) on POST /receive, deserializes, re-serializes to JSON or Avro-JSON, and produces to Kafka.",
+    "authentication_model": "Optional HTTP Basic Auth on the /receive endpoint, configured via BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD environment variables. No auth on /healthz and /metrics endpoints.",
+    "external_dependencies": [
+      {
+        "name": "Kafka broker",
+        "type": "messaging",
+        "required": true,
+        "description": "Kafka cluster for producing serialized metrics. Configured via KAFKA_BROKER_LIST."
+      }
+    ]
+  },
+  "documentation_context": {
+    "sources_found": [],
+    "gaps_identified": [
+      "No organizational documentation (Glean) was available for this service. prometheus-kafka-adapter is an open-source project by Telefónica, not an internal Infoblox service.",
+      "No Swagger/OpenAPI specification was provided or found in the repository."
+    ]
+  },
+  "endpoint_catalog": {
+    "source": "repository_scan",
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/healthz",
+        "handler": "anonymous inline handler (main.go)",
+        "source_file": "main.go",
+        "source_line": 92,
+        "description": "Health check endpoint. Returns HTTP 200 with JSON body {\"status\": \"UP\"}.",
+        "authentication": "none",
+        "request_body": null,
+        "response": {
+          "status_code": 200,
+          "content_type": "application/json",
+          "body_schema": {
+            "status": "string"
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/metrics",
+        "handler": "promhttp.Handler() wrapped by gin",
+        "source_file": "main.go",
+        "source_line": 91,
+        "description": "Prometheus metrics exposition endpoint. Returns Prometheus text format metrics including http_requests_total, incoming_prometheus_batches_total, serialized_total, serialized_failed_total, objects_filtered_total, objects_written_total, objects_failed_total, kafka_queue_size.",
+        "authentication": "none",
+        "request_body": null,
+        "response": {
+          "status_code": 200,
+          "content_type": "text/plain; version=0.0.4; charset=utf-8",
+          "body_schema": "Prometheus text exposition format"
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/receive",
+        "handler": "receiveHandler (handlers.go)",
+        "source_file": "handlers.go",
+        "source_line": 35,
+        "description": "Prometheus remote_write endpoint. Accepts snappy-compressed protobuf payloads (prompb.WriteRequest), deserializes metrics, serializes to JSON or Avro-JSON, and produces to Kafka. Optionally protected by HTTP Basic Auth.",
+        "authentication": "optional_basic_auth",
+        "request_body": {
+          "content_type": "application/x-protobuf",
+          "encoding": "snappy-compressed",
+          "schema": "prometheus prompb.WriteRequest protobuf",
+          "description": "Body must be a snappy-compressed, protobuf-encoded prompb.WriteRequest containing timeseries data with labels and samples."
+        },
+        "response": {
+          "success": {
+            "status_code": 200,
+            "body": null
+          },
+          "errors": [
+            {
+              "condition": "Cannot read request body",
+              "status_code": 500
+            },
+            {
+              "condition": "Body is not valid snappy-compressed data",
+              "status_code": 400
+            },
+            {
+              "condition": "Body cannot be unmarshalled as protobuf",
+              "status_code": 400
+            },
+            {
+              "condition": "processWriteRequest fails",
+              "status_code": 500
+            },
+            {
+              "condition": "Kafka produce fails",
+              "status_code": 500
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "smoke_scenarios": [
+    {
+      "scenario_id": "SMOKE-001",
+      "scenario_name": "Health Check Availability",
+      "objective": "Verify the /healthz endpoint returns HTTP 200 with the expected JSON response indicating the service is running.",
+      "involved_endpoints": [
+        {
+          "method": "GET",
+          "path": "/healthz"
+        }
+      ],
+      "auth_type": "none",
+      "expected_success_conditions": [
+        "HTTP status code is 200",
+        "Response body is valid JSON",
+        "Response body contains {\"status\": \"UP\"}"
+      ],
+      "cleanup_requirements": "none",
+      "dependency_assumptions": [
+        "Service is running and reachable at the configured base URL"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-002",
+      "scenario_name": "Prometheus Metrics Endpoint Availability",
+      "objective": "Verify the /metrics endpoint returns HTTP 200 with Prometheus text exposition format containing expected metric names.",
+      "involved_endpoints": [
+        {
+          "method": "GET",
+          "path": "/metrics"
+        }
+      ],
+      "auth_type": "none",
+      "expected_success_conditions": [
+        "HTTP status code is 200",
+        "Response content type includes text/plain",
+        "Response body contains metric name http_requests_total",
+        "Response body contains metric name objects_written_total",
+        "Response body contains metric name kafka_queue_size"
+      ],
+      "cleanup_requirements": "none",
+      "dependency_assumptions": [
+        "Service is running and reachable",
+        "Kafka broker is reachable (required for kafka_queue_size metric registration)"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-003",
+      "scenario_name": "Receive Endpoint Accepts Valid Remote Write Payload",
+      "objective": "Verify the POST /receive endpoint successfully accepts a valid snappy-compressed protobuf Prometheus remote_write payload and returns HTTP 200.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_if_enabled",
+      "expected_success_conditions": [
+        "HTTP status code is 200",
+        "No error in response body"
+      ],
+      "cleanup_requirements": "none — this endpoint writes to Kafka only; no service-managed resources are created that require cleanup. The Kafka message is a fire-and-forget metric data point.",
+      "dependency_assumptions": [
+        "Kafka broker is running and reachable",
+        "Kafka topic exists or auto-creation is enabled",
+        "If Basic Auth is enabled, valid credentials are provided"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-004",
+      "scenario_name": "Receive Endpoint Metrics Counter Increments",
+      "objective": "Verify that after a successful POST /receive, the http_requests_total and objects_written_total counters increment on /metrics.",
+      "involved_endpoints": [
+        {
+          "method": "GET",
+          "path": "/metrics"
+        },
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_if_enabled",
+      "expected_success_conditions": [
+        "GET /metrics before POST: record http_requests_total and objects_written_total values",
+        "POST /receive with valid payload returns HTTP 200",
+        "GET /metrics after POST: http_requests_total has incremented",
+        "GET /metrics after POST: objects_written_total has incremented"
+      ],
+      "cleanup_requirements": "none",
+      "dependency_assumptions": [
+        "Kafka broker is running and reachable",
+        "Service is running and reachable"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-001",
+      "scenario_name": "Receive Endpoint Rejects Non-Snappy Body",
+      "objective": "Verify the POST /receive endpoint returns HTTP 400 when the request body is not valid snappy-compressed data.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_if_enabled",
+      "expected_failure_conditions": [
+        "HTTP status code is 400",
+        "Service does not crash or become unavailable"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-002",
+      "scenario_name": "Receive Endpoint Rejects Invalid Protobuf",
+      "objective": "Verify the POST /receive endpoint returns HTTP 400 when the body is valid snappy but contains invalid protobuf data.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_if_enabled",
+      "expected_failure_conditions": [
+        "HTTP status code is 400",
+        "Service does not crash or become unavailable"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-003",
+      "scenario_name": "Receive Endpoint Rejects Empty Body",
+      "objective": "Verify the POST /receive endpoint returns an error status when the request body is empty.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_if_enabled",
+      "expected_failure_conditions": [
+        "HTTP status code is 400 or 500",
+        "Service does not crash or become unavailable"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-004",
+      "scenario_name": "Receive Endpoint Rejects Unauthorized Request When Basic Auth Enabled",
+      "objective": "Verify the POST /receive endpoint returns HTTP 401 when Basic Auth is enabled but no credentials are provided.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "none",
+      "expected_failure_conditions": [
+        "HTTP status code is 401",
+        "Response body does not contain success indicators"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-005",
+      "scenario_name": "Receive Endpoint Rejects Invalid Basic Auth Credentials",
+      "objective": "Verify the POST /receive endpoint returns HTTP 401 when Basic Auth is enabled and invalid credentials are supplied.",
+      "involved_endpoints": [
+        {
+          "method": "POST",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "basic_auth_invalid",
+      "expected_failure_conditions": [
+        "HTTP status code is 401",
+        "Response body does not contain success indicators"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-006",
+      "scenario_name": "Non-Existent Endpoint Returns 404",
+      "objective": "Verify that a request to an undefined path returns HTTP 404.",
+      "involved_endpoints": [
+        {
+          "method": "GET",
+          "path": "/nonexistent"
+        }
+      ],
+      "auth_type": "none",
+      "expected_failure_conditions": [
+        "HTTP status code is 404"
+      ]
+    },
+    {
+      "scenario_id": "SMOKE-NEG-007",
+      "scenario_name": "Receive Endpoint Rejects Wrong HTTP Method",
+      "objective": "Verify that GET /receive is not a valid route and returns HTTP 404 or 405.",
+      "involved_endpoints": [
+        {
+          "method": "GET",
+          "path": "/receive"
+        }
+      ],
+      "auth_type": "none",
+      "expected_failure_conditions": [
+        "HTTP status code is 404 or 405"
+      ]
+    }
+  ],
+  "coverage_design": {
+    "endpoint_coverage_map": {
+      "GET /healthz": {
+        "positive_scenarios": ["SMOKE-001"],
+        "negative_scenarios": []
+      },
+      "GET /metrics": {
+        "positive_scenarios": ["SMOKE-002", "SMOKE-004"],
+        "negative_scenarios": []
+      },
+      "POST /receive": {
+        "positive_scenarios": ["SMOKE-003", "SMOKE-004"],
+        "negative_scenarios": ["SMOKE-NEG-001", "SMOKE-NEG-002", "SMOKE-NEG-003", "SMOKE-NEG-004", "SMOKE-NEG-005", "SMOKE-NEG-007"]
+      },
+      "undefined_routes": {
+        "positive_scenarios": [],
+        "negative_scenarios": ["SMOKE-NEG-006"]
+      }
+    },
+    "verification_strategy": {
+      "approach": "HTTP status code validation and response body assertion",
+      "details": [
+        "Verify HTTP status codes for all endpoints",
+        "Validate JSON schema on /healthz response",
+        "Validate presence of expected Prometheus metric names on /metrics",
+        "Validate counter increments on /metrics after POST /receive",
+        "Validate error status codes for invalid payloads and authentication failures"
+      ]
+    },
+    "cleanup_strategy": {
+      "approach": "No cleanup required",
+      "details": "This service is a write-only data pipeline adapter. It does not manage any persistent resources. Data written to Kafka during smoke tests are transient metric data points that do not accumulate as stateful resources requiring deletion."
+    },
+    "authentication_strategy": {
+      "type": "optional_basic_auth",
+      "details": "Authentication on POST /receive is optional and controlled by BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD environment variables. When enabled, Gin BasicAuth middleware enforces HTTP Basic Auth. GET /healthz and GET /metrics are always unauthenticated.",
+      "endpoint_auth_map": {
+        "GET /healthz": "none",
+        "GET /metrics": "none",
+        "POST /receive": "basic_auth_if_enabled"
+      },
+      "required_env_vars": [
+        "BASIC_AUTH_USERNAME (optional — only if Basic Auth is enabled on the target deployment)",
+        "BASIC_AUTH_PASSWORD (optional — only if Basic Auth is enabled on the target deployment)"
+      ],
+      "note": "This service does NOT use CSP JWT-based authentication (POST /v2/session/users/sign_in). It uses standard HTTP Basic Auth via Gin framework."
+    },
+    "data_generation_strategy": {
+      "approach": "Construct synthetic Prometheus remote_write payloads programmatically",
+      "details": [
+        "Generate a valid prompb.WriteRequest protobuf message containing one or more timeseries with labels and samples",
+        "Use AUTO_TEST_ prefix for metric __name__ labels to clearly identify test data",
+        "Snappy-compress the protobuf-encoded bytes before sending",
+        "Use unique timestamp and label values per test execution for isolation",
+        "For negative scenarios: send raw text, invalid snappy, or snappy-wrapped garbage bytes"
+      ],
+      "test_metric_example": {
+        "name": "AUTO_TEST_smoke_metric",
+        "labels": {
+          "__name__": "AUTO_TEST_smoke_metric",
+          "instance": "smoke-test",
+          "job": "smoke"
+        },
+        "timestamp": "current epoch milliseconds",
+        "value": "1.0"
+      }
+    },
+    "parallel_execution_safety_notes": [
+      "All endpoints are stateless from the service perspective — parallel execution is safe.",
+      "POST /receive writes to Kafka and does not create any resources in the service itself.",
+      "Metrics counters are global and will reflect cumulative requests from all parallel executions. Counter-increment assertions (SMOKE-004) should use relative comparison (before/after delta) rather than absolute values.",
+      "Negative auth scenarios (SMOKE-NEG-004, SMOKE-NEG-005) are only valid when Basic Auth is enabled on the target deployment."
+    ]
+  },
+  "clarifications_required": [
+    {
+      "id": "CLARIFY-001",
+      "question": "Is Basic Auth enabled on the target deployment environment?",
+      "context": "POST /receive authentication is optional. Scenarios SMOKE-NEG-004 and SMOKE-NEG-005 (unauthorized access) are only applicable if Basic Auth is enabled. SMOKE-003 and SMOKE-004 need valid credentials only if Basic Auth is enabled.",
+      "impact": "Determines whether auth-related smoke scenarios should be included or skipped, and whether BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD environment variables are needed."
+    },
+    {
+      "id": "CLARIFY-002",
+      "question": "What is the base URL and port where prometheus-kafka-adapter is deployed in the target test environment?",
+      "context": "The service defaults to port 8080. The standard CSP cluster base URLs (us-dev-5, etc.) do not apply to this service as it is not a CSP API — it is a standalone adapter typically deployed via Helm.",
+      "impact": "Required to construct the target base URL for all smoke test HTTP requests."
+    },
+    {
+      "id": "CLARIFY-003",
+      "question": "Is a Kafka broker available and reachable from the test execution environment?",
+      "context": "POST /receive will return HTTP 500 if Kafka produce fails. The service requires a running Kafka broker to function correctly. Smoke scenarios SMOKE-003 and SMOKE-004 depend on a healthy Kafka connection.",
+      "impact": "If Kafka is unavailable, positive scenarios for POST /receive will fail with 500 errors unrelated to the endpoint logic."
+    },
+    {
+      "id": "CLARIFY-004",
+      "question": "What serialization format (json or avro-json) is configured on the target deployment?",
+      "context": "Configured via SERIALIZATION_FORMAT env var. Affects internal serialization behavior. If avro-json, the schemas/metric.avsc file must be accessible to the service.",
+      "impact": "Does not affect smoke test payloads (input is always protobuf), but may affect error behavior if misconfigured."
+    },
+    {
+      "id": "CLARIFY-005",
+      "question": "Should smoke tests construct the Prometheus remote_write protobuf payload using a K6 extension or a pre-built binary payload?",
+      "context": "K6 does not natively support protobuf serialization or snappy compression. Constructing a valid prompb.WriteRequest in K6 JavaScript requires either: (a) a K6 extension for protobuf/snappy, (b) a pre-encoded static binary payload embedded as a byte array, or (c) a helper service that generates the payload.",
+      "impact": "Determines the implementation approach for SMOKE-003 and SMOKE-004. If no K6 protobuf extension is available, a pre-encoded static payload may be used."
+    }
+  ]
+}
