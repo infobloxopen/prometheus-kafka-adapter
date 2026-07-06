@@ -1,5 +1,5 @@
 # Build stage - use Alpine to produce musl/static binary
-FROM golang:1.24.11-alpine AS builder
+FROM golang:1.25.11-alpine AS builder
 LABEL stage=builder-intermediate
 WORKDIR /src/prometheus-kafka-adapter
 
