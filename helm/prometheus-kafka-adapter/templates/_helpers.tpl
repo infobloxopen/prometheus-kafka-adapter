@@ -54,3 +54,19 @@ Create the name of the service account to use
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+imageRepository returns the image repository to use.
+If .Values.global.ib0.services.registry.host is set, it will be used as the registry host, otherwise .Values.image.repository will be used.
+*/}}
+{{- define "prometheus-kafka-adapter.imageRepository" -}}
+{{- $host := "" -}}
+{{- with .Values.global.ib0.services.registry -}}
+{{- $host = tpl (.host | default "") $ -}}
+{{- end -}}
+{{- if $host -}}
+{{- printf "%s/%s/%s" $host .Values.image.org .Values.image.name -}}
+{{- else -}}
+{{- .Values.image.repository -}}
+{{- end -}}
+{{- end -}}
