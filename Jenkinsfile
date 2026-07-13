@@ -6,7 +6,6 @@ pipeline {
  }
  environment {
    HELM_IMAGE = "infoblox/helm:3"
-   REGISTRY = "harbor.services.sdp.infoblox.com"
    VERSION = sh(script: "git describe --always --long --tags | sed s/^prometheus-kafka-adapter-//", returnStdout: true).trim()
    TAG = "${env.VERSION}-j${env.BUILD_NUMBER}"
  }
@@ -19,9 +18,6 @@ pipeline {
    stage("Package Chart") {
      steps {
        dir("helm") {
-         sh '''
-           sed -i "s!repository: .*!repository: $REGISTRY/infoblox/prometheus.kafka.adapter!g" prometheus-kafka-adapter/values.yaml
-         '''
          withAWS(credentials: "CICD_HELM", region: "us-east-1") {
            sh '''
              docker run --rm \
