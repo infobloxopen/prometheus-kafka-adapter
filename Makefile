@@ -22,13 +22,13 @@ build-musl:
 	docker run --rm -v $(CURDIR):/app:z -w /app golang:$(MUSL_GO_VER) sh tools/buildscript.sh $(NAME)
 
 build-docker-image:
-	docker buildx build -t telefonica/prometheus-kafka-adapter:latest .
+	docker buildx build -t cgr-proxy/infoblox.com/prometheus-kafka-adapter:latest .
 
 vendor-update:
 	docker run --rm -e PACKAGE_NAME=$(PACKAGE_NAME) -v $(CURDIR):/app:z -w /app golang:$(MUSL_GO_VER) sh tools/vendorscript.sh
 
 list-of-images:
-	@echo "harbor.services.sdp.infoblox.com/infoblox/prometheus.kafka.adapter:$(TAG)"
+	@echo "cgr-proxy/infoblox.com/prometheus-kafka-adapter:$(TAG)"
 
 clean:
 	rm -f $(NAME)-libc $(NAME)-musl
