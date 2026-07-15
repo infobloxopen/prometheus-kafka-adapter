@@ -6,7 +6,7 @@ replicaCount: 3
 
 image:
   repository: telefonica/prometheus-kafka-adapter
-  org: infoblox
+  org: infobloxcto
   name: prometheus.kafka.adapter
   tag: ""
   pullPolicy: IfNotPresent
