@@ -39,7 +39,7 @@ jobs:
           make build-docker-image
           
           # Tag for scanning
-          docker tag cgr-proxy/infoblox.com/prometheus-kafka-adapter:latest ghcr.io/${REPO_LOWER}:scan
+          docker tag cgr-proxy/infoblox.com/prometheus-kafka-adapter:${TAG:-latest} ghcr.io/${REPO_LOWER}:scan
 
           # Verify the image was built successfully
           docker images | grep "prometheus-kafka-adapter"
