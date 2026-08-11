@@ -23,6 +23,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"gopkg.in/yaml.v2"
 
 	"github.com/sirupsen/logrus"
@@ -172,7 +173,7 @@ func parseMatchList(text string) (map[string]*dto.MetricFamily, error) {
 
 	metricsText := strings.Join(metricsList, "")
 
-	var parser expfmt.TextParser
+	parser := expfmt.NewTextParser(model.LegacyValidation)
 	metricFamilies, err := parser.TextToMetricFamilies(strings.NewReader(metricsText))
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse match rules: %s", err)

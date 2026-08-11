@@ -1,4 +1,4 @@
-// Copyright 2020 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -13,5 +13,19 @@
 
 package prompb
 
-func (m Sample) T() int64   { return m.Timestamp }
-func (m Sample) V() float64 { return m.Value }
+import (
+	"sync"
+)
+
+func (r *ChunkedReadResponse) PooledMarshal(p *sync.Pool) ([]byte, error) {
+	size := r.Size()
+	data, ok := p.Get().(*[]byte)
+	if ok && cap(*data) >= size {
+		n, err := r.MarshalToSizedBuffer((*data)[:size])
+		if err != nil {
+			return nil, err
+		}
+		return (*data)[:n], nil
+	}
+	return r.Marshal()
+}
