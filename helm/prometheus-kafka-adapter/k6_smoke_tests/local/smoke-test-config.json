@@ -1,0 +1,10 @@
+{
+  "service": "prometheus-kafka-adapter",
+  "cluster": "us-dev-5",
+  "baseUrl": "http://localhost:8080",
+  "basicAuth": {
+    "enabled": false,
+    "username": "",
+    "password": ""
+  }
+}

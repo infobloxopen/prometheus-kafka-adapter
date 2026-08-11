@@ -1,0 +1,6 @@
+apiVersion: v2
+name: prometheus-kafka-adapter-smoke-tests
+description: K6 smoke test suite for prometheus-kafka-adapter
+version: 1.0.0
+appVersion: "1.8.0"
+type: application

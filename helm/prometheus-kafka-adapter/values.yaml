@@ -116,6 +116,59 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# ─── Smoke Tests ─────────────────────────────────────────────────────────────
+smokeTests:
+  # Set to true to deploy K6 smoke test resources (CronJob, ConfigMaps, RBAC, etc.)
+  enabled: false
+
+  # Base URL for the prometheus-kafka-adapter service under test.
+  # Example: http://prometheus-kafka-adapter.default.svc.cluster.local:8080
+  baseUrl: ""
+
+  # Target cluster identifier. Must be in the approved cluster allowlist.
+  cluster: "us-dev-5"
+
+  # Namespace where the prometheus-kafka-adapter service is deployed.
+  serviceNamespace: "ngp-cp"
+
+  # Deployment name to validate during rollout checks.
+  deploymentName: "prometheus-kafka-adapter"
+
+  # CronJob schedule for the HelmRelease watcher (default: every 3 minutes).
+  schedule: "*/3 * * * *"
+
+  # Whether to create the Kubernetes Secret for test credentials.
+  # Set to false if managing the secret externally.
+  createSecret: true
+
+  # Name of the Kubernetes Secret containing test credentials.
+  secretName: "pka-smoke-test-config"
+
+  # Basic Auth credentials for the /receive endpoint.
+  # Only needed if the target deployment has Basic Auth enabled.
+  basicAuth:
+    enabled: false
+    username: ""
+    password: ""
+
+  # HelmRelease details for the CronJob watcher.
+  helmRelease:
+    name: "prometheus-kafka-adapter"
+    namespace: "vela-system"
+
+  # Container images
+  kubectlImage: "harbor.services.sdp.infoblox.com/infobloxcto/kubectl:1.30.7"
+  k6Image: "harbor.services.sdp.infoblox.com/proxy_cache_docker_hub/grafana/k6:1.7.1"
+
+  # Cortex metrics push configuration
+  cortex:
+    url: "http://cortex.services.sdp.infoblox.com/api/v1/push"
+    orgId: "us-dev-5"
+
+  # Grafana dashboard
+  dashboard:
+    enabled: false
 global:
   ib0:
     services:

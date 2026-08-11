@@ -1,0 +1,26 @@
+{{- if and .Values.smokeTests.enabled .Values.smokeTests.dashboard.enabled }}
+# GrafanaDashboard CR — uses the v1alpha1 API (integreatly.org/v1alpha1) to target
+# the primary appinfra-grafana instance at grafana-csp.<cluster>.eng.test.infoblox.com.
+# Dashboard JSON contains Cortex-native PromQL panels; version history is driven
+# by the $version template variable populated via label_values().
+---
+apiVersion: integreatly.org/v1alpha1
+kind: GrafanaDashboard
+metadata:
+  name: pka-k6-smoke-tests
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: grafana
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/component: grafana-dashboard
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    integreatly.org/operator: appinfra-grafana
+spec:
+  customFolderName: "K6 Smoke Tests"
+  datasources:
+    - inputName: "DS_PROMETHEUS"
+      datasourceName: "Prometheus"
+  environment: {{ .Values.smokeTests.cluster | quote }}
+  json: |-
+{{ .Files.Get "k6_smoke_tests/files/pka-smoke-tests-dashboard.json" | replace "__CLUSTER__" .Values.smokeTests.cluster | indent 4 }}
+{{- end }}

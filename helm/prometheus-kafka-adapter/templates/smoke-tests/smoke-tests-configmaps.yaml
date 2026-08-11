@@ -1,0 +1,32 @@
+{{- if .Values.smokeTests.enabled }}
+# ConfigMaps containing K6 test source files.
+# Each ConfigMap bundles related K6 scripts as data entries.
+# The K6 runner Job mounts these as volumes.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pka-k6-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: k6-smoke-tests
+    app.kubernetes.io/part-of: prometheus-kafka-adapter
+    app.kubernetes.io/component: k6-tests
+data:
+  main.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/smoke-tests-modular.js" | nindent 4 }}
+  config.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/modular-config.js" | nindent 4 }}
+  auth.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/modular-auth.js" | nindent 4 }}
+  validators.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/modular-http-client.js" | nindent 4 }}
+  utils.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/modular-scenario-runner.js" | nindent 4 }}
+  resourceHelpers.js: |-
+{{- .Files.Get "k6_smoke_tests/k6/modular-resource-tracker.js" | nindent 4 }}
+  endpoints.json: |-
+{{- .Files.Get "k6_smoke_tests/k6/endpoints.json" | nindent 4 }}
+  smoke-test-config.json: |-
+{{- .Files.Get "k6_smoke_tests/k6/smoke-test-config.json" | nindent 4 }}
+{{- end }}
