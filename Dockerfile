@@ -24,8 +24,8 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
     -mod=vendor \
     -o /bin/prometheus-kafka-adapter
 
-# Final runtime stage using distroless static base
-FROM gcr.io/distroless/static-debian13:nonroot-amd64 AS runner
+# Final runtime stage using Chainguard FIPS distroless static base
+FROM cgr-proxy/infoblox.com/static:latest-nonroot AS runner
 WORKDIR /
 
 # Copy the binary from builder
