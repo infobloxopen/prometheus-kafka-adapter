@@ -31,6 +31,6 @@ jobs:
     - name: Test
       run: |
        go test -v ./...
-       docker build -t telefonica/prometheus-kafka-adapter .
-       docker run -d --name test telefonica/prometheus-kafka-adapter
+       docker build -t cgr-proxy/infoblox.com/prometheus-kafka-adapter .
+       docker run -d --name test cgr-proxy/infoblox.com/prometheus-kafka-adapter
        if [ $(docker inspect -f {{.State.Status}} test) = "running" ]; then echo "OK"; exit 0; else echo "FAILED"; exit 1; fi
