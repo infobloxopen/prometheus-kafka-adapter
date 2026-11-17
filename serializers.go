@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"sort"
 	"strconv"
 	"time"
 
@@ -123,8 +124,15 @@ func topic(labels map[string]string) string {
 
 	// hashes all labels when no specific labels are configured
 	if kafkaPartitionLabels == nil {
-		for k, v := range labels {
-			if _, err := buf2.WriteString(k + v); err != nil {
+		// Go randomizes map iteration order, so sort the label names to keep the
+		// partition key stable for a given series.
+		keys := make([]string, 0, len(labels))
+		for k := range labels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if _, err := buf2.WriteString(k + labels[k]); err != nil {
 				return ""
 			}
 		}

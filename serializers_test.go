@@ -117,6 +117,35 @@ func TestSerializeToAvro(t *testing.T) {
 	}
 }
 
+func TestTopicPartitionKeyIsStable(t *testing.T) {
+	// Save and restore globals to avoid test pollution
+	originalTopicTemplate := topicTemplate
+	originalPartitionLabels := kafkaPartitionLabels
+	defer func() {
+		topicTemplate = originalTopicTemplate
+		kafkaPartitionLabels = originalPartitionLabels
+	}()
+
+	var err error
+	topicTemplate, err = parseTopicTemplate("metrics")
+	assert.Nil(t, err)
+	kafkaPartitionLabels = nil
+
+	labels := map[string]string{
+		"__name__": "foo",
+		"a":        "1",
+		"b":        "2",
+		"c":        "3",
+		"d":        "4",
+		"e":        "5",
+	}
+
+	expected := "metrics|__name__fooa1b2c3d4e5"
+	for i := 0; i < 500; i++ {
+		assert.Equal(t, expected, topic(labels), "partition key must not depend on map iteration order")
+	}
+}
+
 func TestTemplatedTopic(t *testing.T) {
 	// Save and restore the global topicTemplate variable to avoid test pollution
 	originalTopicTemplate := topicTemplate
